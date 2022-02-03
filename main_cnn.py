@@ -6,6 +6,7 @@ from sklearn.model_selection import KFold
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
+import copy
 
 import metrics
 import pandas as pd
@@ -49,6 +50,11 @@ for df in dataframes:
     features = df[0].values
     target = df[1].values
     n_class = df[2]
+
+    if n_class > 2:
+        multiclass = True
+    else:
+        multiclass = False
 
     if k == 0 or k == 10 or k == 14:
         k = k + 1
@@ -102,13 +108,14 @@ for df in dataframes:
             restore_best_weights=True,
         )
 
-        teacher.fit(x_train_images, Y_train_onehot, batch_size=16, validation_split=0.1, epochs=1, verbose=1, callbacks=[clallback])
-
-        for i in range(2):
+        teacher.fit(x_train_images, Y_train_onehot, batch_size=16, validation_split=0.1, epochs=20, verbose=1, callbacks=[clallback])
+        best_acurracy = 0
+        models = []
+        for i in range(5):
 
             student = fcnn_lib.fully_fcnn(n_class=n_class)
-
-            distiller = Distiller.Distiller(student=student, teacher=teacher)
+            models.append(Distiller.Distiller(student=student, teacher=teacher))
+            distiller = models[i]
             distiller.compile(
                 optimizer='adam',
                 metrics=['accuracy'],
@@ -118,53 +125,56 @@ for df in dataframes:
                 temperature=15,
             )
 
-            distiller.fit([x_train_images, X_train], Y_train_onehot, epochs=1, batch_size=16)
+            distiller.fit([x_train_images, X_train], Y_train_onehot, epochs=50, batch_size=16)
 
             teacher = distiller.student
             x_train_images = X_train
 
+            Y_proba = distiller.predict(X_test)
+            Y_pred = Y_proba.argmax(axis=1)
+
+            acc, precision, recall, auc_pr, auc_roc = \
+                    metrics.eval_metrics(y_test, Y_pred, Y_proba, multiclass=multiclass, n_class=n_class)
+
+            if acc > best_acurracy:
+                best_model = models[i]
+
 
         #########################################################
-        # Y_proba = distiller.predict(X_test)
-        # Y_pred = Y_proba.argmax(axis=1)
-        # if n_class > 2:
-        #     multiclass = True
-        # else:
-        #     multiclass = False
-        #
-        # acc, precision, recall, auc_pr, auc_roc = \
-        #         metrics.eval_metrics(y_test, Y_pred, Y_proba, multiclass=multiclass, n_class=n_class)
-        #
-        # new_row = {'Accuracy': acc, 'Precision': precision, 'Recall': recall,
-        #            'AUC ROC': auc_roc, 'auc pr': auc_pr}
-        # df_marks = df_marks.append(new_row, ignore_index=True)
+        Y_proba = best_model.predict(X_test)
+        Y_pred = Y_proba.argmax(axis=1)
 
-        ##########################################################
-        extract = Model(inputs=teacher.inputs, outputs=teacher.layers[-2].output)
 
-        features_train = extract.predict(X_train)
-        features_test = extract.predict(X_test)
-
-        X_train_concatenate = np.concatenate([X_train, features_train], axis=-1)
-        X_test_concatenate = np.concatenate([X_test, features_test], axis=-1)
-
-        clf = RandomForestClassifier()
-        clf = RandomizedSearchCV(estimator=clf, param_distributions=random_grid, cv=3, verbose=0,
-                                 random_state=42)
-        clf = clf.fit(X_train_concatenate, y_train)
-
-        Y_proba = clf.predict_proba(X_test_concatenate)
-        Y_pred = clf.predict(X_test_concatenate)
-        if n_class > 2:
-            multiclass = True
-        else:
-            multiclass = False
         acc, precision, recall, auc_pr, auc_roc = \
-            metrics.eval_metrics(y_test, Y_pred, Y_proba, multiclass=True, n_class=n_class)
+                metrics.eval_metrics(y_test, Y_pred, Y_proba, multiclass=multiclass, n_class=n_class)
 
         new_row = {'Accuracy': acc, 'Precision': precision, 'Recall': recall,
                    'AUC ROC': auc_roc, 'auc pr': auc_pr}
         df_marks = df_marks.append(new_row, ignore_index=True)
+
+        ##########################################################
+        # extract = Model(inputs=best_model.student.inputs, outputs=best_model.student.layers[-2].output)
+        #
+        # features_train = extract.predict(X_train)
+        # features_test = extract.predict(X_test)
+        #
+        # X_train_concatenate = np.concatenate([X_train, features_train], axis=-1)
+        # X_test_concatenate = np.concatenate([X_test, features_test], axis=-1)
+        #
+        # clf = RandomForestClassifier()
+        # clf = RandomizedSearchCV(estimator=clf, param_distributions=random_grid, cv=3, verbose=0,
+        #                          random_state=42)
+        # clf = clf.fit(X_train_concatenate, y_train)
+        #
+        # Y_proba = clf.predict_proba(X_test_concatenate)
+        # Y_pred = clf.predict(X_test_concatenate)
+        #
+        # acc, precision, recall, auc_pr, auc_roc = \
+        #     metrics.eval_metrics(y_test, Y_pred, Y_proba, multiclass=True, n_class=n_class)
+        #
+        # new_row = {'Accuracy': acc, 'Precision': precision, 'Recall': recall,
+        #            'AUC ROC': auc_roc, 'auc pr': auc_pr}
+        # df_marks = df_marks.append(new_row, ignore_index=True)
         ##########################################################
 
 df_marks.to_csv('results\\cnn_results.csv')

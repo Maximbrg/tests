@@ -2,7 +2,7 @@ from tab2img.converter import Tab2Img
 
 import pandas as pd
 import numpy as np
-NUM_FOLDS_OUTTER = 2
+NUM_FOLDS_OUTTER = 10
 
 def data_loader():
     d0 = 'datasets/lymphography.csv'
