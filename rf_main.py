@@ -40,9 +40,10 @@ d = {'Accuracy': [], 'Precision': [], 'Recall': [],
            'AUC ROC': [], 'auc pr': []}
 
 df_marks = pd.DataFrame(d)
-
+blabla = 0
 for df in dataframes:
-    print(1)
+    print(blabla)
+    blabla = blabla + 1
     features = df[0].values
     target = df[1].values
     n_class = df[2]
@@ -66,7 +67,7 @@ for df in dataframes:
         if n_class > 2:
             multiclass = True
         else:
-            multiclass = False
+            multiclass = True
         acc, precision, recall, auc_pr, auc_roc = \
             metrics.eval_metrics(Y_test, Y_pred, Y_proba, multiclass=multiclass, n_class=n_class)
 
@@ -98,4 +99,4 @@ for df in dataframes:
     #     df_marks = df_marks.append(new_row, ignore_index=True)
 
 
-df_marks.to_csv('results\\mammographic.csv')
+df_marks.to_csv('results\\rf_results_2.csv')

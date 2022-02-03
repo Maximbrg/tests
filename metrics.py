@@ -3,6 +3,7 @@ import pandas as pd
 from sklearn.metrics import confusion_matrix as conf_m
 from sklearn.metrics import precision_score, accuracy_score, recall_score, precision_recall_curve, auc
 from sklearn import metrics
+import math
 
 import matplotlib.pyplot as plt
 
@@ -24,9 +25,13 @@ def eval_metrics(y_true, y_pred, y_proba, multiclass=True, n_class=3):
         auc_pr = 0
         for key in d.keys():
             precision_auc, recall_auc, _ = precision_recall_curve(d[key], y_proba[:, key])
+            if math.isnan(auc(recall_auc, precision_auc)):
+                continue
             auc_pr = auc_pr + auc(recall_auc, precision_auc)
 
             fpr, tpr, _ = metrics.roc_curve(d[key], y_proba[:, key])
+            if math.isnan(metrics.auc(fpr, tpr)):
+                continue
             auc_roc = auc_roc + metrics.auc(fpr, tpr)
 
         auc_pr = auc_pr / n_class

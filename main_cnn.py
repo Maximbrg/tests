@@ -51,10 +51,11 @@ for df in dataframes:
     target = df[1].values
     n_class = df[2]
 
+    # In purpose
     if n_class > 2:
         multiclass = True
     else:
-        multiclass = False
+        multiclass = True
 
     if k == 0 or k == 10 or k == 14:
         k = k + 1
